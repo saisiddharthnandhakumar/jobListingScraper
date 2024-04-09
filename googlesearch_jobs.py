@@ -19,7 +19,7 @@ def get_search_terms_from_sheet(sheet):
     search_terms = sheet.col_values(1)[1:]  # Assuming search terms are in the first column, excluding header
     return search_terms
 
-def search_and_scrape_google(search_term, num_results=3):
+def search_and_scrape_google(search_term, num_results=5):
     results_data = []
     # Initialize Chrome WebDriver outside the loop
     driver = webdriver.Chrome()
@@ -45,7 +45,11 @@ def search_and_scrape_google(search_term, num_results=3):
                 meta_description = meta_tag.get('content').strip()
             # Add other extraction methods here...
             
-            results_data.append((title, meta_description))
+            # Extract h3 tag text (job listing titles) using CSS selector
+            h3_tags = soup.select('h3.LC20lb.MBeuO.DKV0Md')  # Use CSS selector
+            h3_texts = [tag.text.strip() for tag in h3_tags]
+            
+            results_data.append((title, meta_description, h3_texts))
         except Exception as e:
             print(f"Error scraping {result}: {e}")
     # Quit the WebDriver after processing all URLs
@@ -57,11 +61,14 @@ def update_google_sheet(sheet, data):
     # Find the next available column index
     next_column_index = len(sheet.row_values(1)) + 1
     
-    for row_idx, (title, meta_description) in enumerate(data, start=2):
+    for row_idx, (title, meta_description, h3_texts) in enumerate(data, start=2):  # Start from row index 2
         # Write data into the next available column
         sheet.update_cell(row_idx, next_column_index, title)
         sheet.update_cell(row_idx, next_column_index + 1, meta_description)
+        sheet.update_cell(row_idx, next_column_index + 2, ", ".join(h3_texts))  # Combine h3_texts into a string
         time.sleep(1)  # Add a delay of 1 second between each write request
+
+
 
 def main(credentials_file, document_id, sheet_name):
     client = authenticate_with_google_sheets(credentials_file)
