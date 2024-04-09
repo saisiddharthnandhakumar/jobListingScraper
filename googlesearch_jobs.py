@@ -1,11 +1,13 @@
-#added a comment for testing
 from googlesearch import search
 from bs4 import BeautifulSoup
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 import time
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 def authenticate_with_google_sheets(credentials_file):
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -19,19 +21,37 @@ def get_search_terms_from_sheet(sheet):
 
 def search_and_scrape_google(search_term, num_results=3):
     results_data = []
-    for result in search(search_term, num_results=num_results):
+    # Initialize Chrome WebDriver outside the loop
+    driver = webdriver.Chrome()
+    
+    search_results = search(search_term)  # No num_results parameter
+    for idx, result in enumerate(search_results):
+        if idx >= num_results:
+            break
         try:
             driver.get(result)
-            time.sleep(2)  # Wait for the page to load
             
-            # Extract meta title and meta description
+            # Wait for the page to load completely
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, "//body")))
+            
+            # Extract meta title and meta description using BeautifulSoup
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
             title = driver.title.strip()
-            meta_tag = driver.find_element_by_css_selector("meta[name='description']")
-            meta_description = meta_tag.get_attribute('content').strip() if meta_tag else None
+            
+            # Try to extract meta description using different methods
+            meta_description = None
+            meta_tag = soup.find('meta', attrs={'name': 'description'})
+            if meta_tag:
+                meta_description = meta_tag.get('content').strip()
+            # Add other extraction methods here...
+            
             results_data.append((title, meta_description))
         except Exception as e:
             print(f"Error scraping {result}: {e}")
+    # Quit the WebDriver after processing all URLs
+    driver.quit()
     return results_data
+
 
 def update_google_sheet(sheet, data):
     # Find the next available column index
@@ -52,11 +72,6 @@ def main(credentials_file, document_id, sheet_name):
         update_google_sheet(sheet, search_results)
 
 if __name__ == "__main__":
-    chromedriver_path = 'C:/Users/sid/OneDrive/Desktop/VS code Project/Meta Des Project/chromedriver-win64/chromedriver.exe'
-
-    # Initialize Chrome WebDriver with the chromedriver executable path
-    driver = webdriver.Chrome()
-
     # Provide the necessary credentials and document details
     credentials_file = "credentials_file.json"
     document_id = "10u5o4tZJW71cLXIL5-vsMGxnqrZNNbJ3AhTsfwMtdzs"
@@ -64,6 +79,4 @@ if __name__ == "__main__":
     
     # Execute the main function
     main(credentials_file, document_id, sheet_name)
-    
-    # Quit the WebDriver after execution
-    driver.quit()
+
