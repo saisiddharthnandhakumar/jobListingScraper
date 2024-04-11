@@ -8,6 +8,7 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 
 def authenticate_with_google_sheets(credentials_file):
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -32,7 +33,7 @@ def search_and_scrape_google(search_term, num_results=5):
             driver.get(result)
             
             # Wait for the page to load completely
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, "//body")))
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[6]/div/div[13]/div/div[2]/div[2]/div/div/div[3]/div/div/div[1]/div/div/span/a/h3')))
             
             # Extract meta title and meta description using BeautifulSoup
             soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -45,16 +46,18 @@ def search_and_scrape_google(search_term, num_results=5):
                 meta_description = meta_tag.get('content').strip()
             # Add other extraction methods here...
             
-            # Extract h3 tag text (job listing titles) using CSS selector
-            h3_tags = soup.select('h3.LC20lb.MBeuO.DKV0Md')  # Use CSS selector
-            h3_texts = [tag.text.strip() for tag in h3_tags]
+            # Extract h3 tag text using full XPath
+            h3_element = driver.find_element(By.XPATH, '/html/body/div[6]/div/div[13]/div/div[2]/div[2]/div/div/div[3]/div/div/div[1]/div/div/span/a/h3')
+            h3_text = h3_element.text.strip()
             
-            results_data.append((title, meta_description, h3_texts))
+            results_data.append((title, meta_description, h3_text))
         except Exception as e:
             print(f"Error scraping {result}: {e}")
     # Quit the WebDriver after processing all URLs
     driver.quit()
     return results_data
+
+
 
 
 def update_google_sheet(sheet, data):
